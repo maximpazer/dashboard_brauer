@@ -1,0 +1,244 @@
+"""Lädt vorberechnete Group-SHAP-/Evaluations-Artefakte aus ``results/``.
+
+Direkte Portierung der Logik aus ``dashboard/data_loader.py`` (Streamlit) auf
+eine zustandslose Service-Schicht für FastAPI. Liest ausschliesslich
+vorberechnete CSV/JSON-Dateien — kein Modell-Load hier (das macht
+``model_service``).
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from functools import lru_cache
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+from . import config, model_service
+from .brewing_knowledge import feature_hint, phase_meta, recommend_for_phase
+
+
+def _read_csv(path: Path, **kwargs) -> pd.DataFrame:
+    if not path.exists():
+        raise FileNotFoundError(
+            f"Benötigte Datei fehlt: {path}\n"
+            "Bitte zuerst code/03_shap.ipynb und code/04_evaluation.ipynb ausführen."
+        )
+    return pd.read_csv(path, **kwargs)
+
+
+def _read_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    with open(path, "r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+@dataclass(frozen=True)
+class DashboardData:
+    group_summary: pd.DataFrame
+    group_shap: pd.DataFrame
+    feature_shap: pd.DataFrame
+    total: pd.Series
+    mapping: dict[str, list[str]]
+    base_value: float
+    eval_summary: dict
+
+    @property
+    def n_beers(self) -> int:
+        return int(len(self.group_shap))
+
+    @property
+    def phases(self) -> list[str]:
+        return [p for p in config.PROCESS_ORDER if p in self.group_shap.columns]
+
+
+@lru_cache(maxsize=1)
+def get_dashboard_data() -> DashboardData:
+    group_summary = _read_csv(config.SHAP_DIR / "group_shap_summary.csv", index_col=0)
+    group_shap = _read_csv(config.SHAP_DIR / "group_shap_hefeweizen_beer.csv")
+    feature_shap_raw = _read_csv(config.SHAP_DIR / "shap_values_hefeweizen_beer.csv")
+
+    total = feature_shap_raw["TOTAL"].astype(float)
+    feature_shap = feature_shap_raw.drop(columns=["TOTAL"])
+
+    mapping = _read_json(config.SHAP_DIR / "exclusive_groups_hefeweizen.json")
+    # Gleicher base_value wie model_service (explainer.expected_value nach dem
+    # base_score-Fix) statt einer separaten historischen Rekonstruktion — so
+    # liefern historische Biere und live eingegebene Profile konsistente Werte.
+    base_value = model_service.get_model_bundle().base_value
+    eval_summary = _read_json(config.EVAL_DIR / "evaluation_summary_xgboost_hefeweizen.json")
+
+    return DashboardData(
+        group_summary=group_summary,
+        group_shap=group_shap,
+        feature_shap=feature_shap,
+        total=total,
+        mapping=mapping,
+        base_value=base_value,
+        eval_summary=eval_summary,
+    )
+
+
+def groups_summary_payload() -> dict:
+    data = get_dashboard_data()
+    phases = data.phases
+    rows = []
+    for phase in phases:
+        row = data.group_summary.loc[phase]
+        meta = phase_meta(phase)
+        rows.append(
+            {
+                "name": phase,
+                "n_features": int(row["n_features"]),
+                "importance": float(row["importance"]),
+                "importance_pct": float(row["importance_pct"]),
+                "mean_signed": float(row["mean_signed"]),
+                "icon": meta["icon"],
+                "summary": meta["summary"],
+                "lever": meta["lever"],
+            }
+        )
+    top_phase = max(rows, key=lambda r: r["importance"])["name"] if rows else None
+    return {"n_beers": data.n_beers, "phases": rows, "top_phase": top_phase}
+
+
+def group_drilldown_payload(phase: str) -> dict:
+    data = get_dashboard_data()
+    if phase not in data.mapping:
+        raise KeyError(phase)
+    features = [f for f in data.mapping[phase] if f in data.feature_shap.columns]
+    sub = data.feature_shap[features]
+    mean_abs = sub.abs().mean()
+    mean_signed = sub.mean()
+
+    feature_rows = [
+        {
+            "name": f,
+            "mean_abs_shap": float(mean_abs[f]),
+            "mean_signed_shap": float(mean_signed[f]),
+            "values": [float(v) for v in sub[f].values],
+            "hint": feature_hint(f),
+        }
+        for f in features
+    ]
+    feature_rows.sort(key=lambda r: r["mean_abs_shap"], reverse=True)
+    meta = phase_meta(phase)
+    return {"phase": phase, "icon": meta["icon"], "summary": meta["summary"], "lever": meta["lever"], "features": feature_rows}
+
+
+def beers_list_payload() -> list[dict]:
+    data = get_dashboard_data()
+    return [
+        {"id": i, "label": f"Bier #{i + 1} · Bewertung {round(score)}", "total": float(score)}
+        for i, score in enumerate(data.total)
+    ]
+
+
+def beer_detail_payload(beer_id: int) -> dict:
+    data = get_dashboard_data()
+    if beer_id < 0 or beer_id >= data.n_beers:
+        raise IndexError(beer_id)
+    phases = data.phases
+    group_row = data.group_shap.iloc[beer_id]
+    feature_row = data.feature_shap.iloc[beer_id]
+    predicted = float(data.base_value + group_row[phases].sum())
+
+    percentiles = {
+        phase: float((data.group_shap[phase] < group_row[phase]).mean() * 100) for phase in phases
+    }
+
+    group_shap = {phase: float(group_row[phase]) for phase in phases}
+    feature_shap = {f: float(v) for f, v in feature_row.items()}
+
+    return {
+        "id": beer_id,
+        "actual_total": float(data.total.iloc[beer_id]),
+        "predicted_total": predicted,
+        "base_value": data.base_value,
+        "group_shap": group_shap,
+        "feature_shap": feature_shap,
+        "percentiles": percentiles,
+        "recommendations": recommendations_payload(group_shap, feature_shap),
+    }
+
+
+def benchmark_percentile_payload(total: float) -> dict:
+    data = get_dashboard_data()
+    pct = float((data.total < total).mean() * 100)
+    return {
+        "total": total,
+        "percentile": pct,
+        "n_beers": data.n_beers,
+        "historical_mean": float(data.total.mean()),
+        "historical_std": float(data.total.std()),
+    }
+
+
+def _total_range() -> tuple[float, float]:
+    data = get_dashboard_data()
+    return float(data.total.min()), float(data.total.max())
+
+
+def total_to_scale_1_5(total: float) -> tuple[float, float]:
+    """Lineare Umrechnung der echten TOTAL-Jury-Skala (~22-40) auf eine
+    brauerfreundliche 1-5-Skala, plus die linear mitskalierte Unsicherheit
+    (RMSE auf derselben Skala) — exakte Fehlerfortpflanzung bei linearer
+    Transformation, kein Artefakt."""
+    lo, hi = _total_range()
+    scale = 4.0 / (hi - lo)
+    score = 1.0 + scale * (total - lo)
+    score = min(5.0, max(1.0, score))
+    rmse = model_service.get_model_bundle().test_rmse
+    uncertainty = rmse * scale
+    return score, uncertainty
+
+
+def benchmark_quartiles_1_5() -> dict:
+    """p25/Mittelwert/p75 der historischen TOTAL-Verteilung, umgerechnet auf
+    die 1-5-Skala — Grundlage für den Benchmark-Balken in der Prognose-Ansicht."""
+    data = get_dashboard_data()
+    lo, hi = _total_range()
+    scale = 4.0 / (hi - lo)
+
+    def to_scale(total: float) -> float:
+        return min(5.0, max(1.0, 1.0 + scale * (total - lo)))
+
+    return {
+        "p25": to_scale(float(data.total.quantile(0.25))),
+        "p75": to_scale(float(data.total.quantile(0.75))),
+        "mean": to_scale(float(data.total.mean())),
+        "min": 1.0,
+        "max": 5.0,
+    }
+
+
+def recommendations_payload(group_shap: dict[str, float], feature_shap: dict[str, float]) -> list[dict]:
+    """Templatierte Handlungsempfehlungen je Brauprozess-Stufe für ein beliebiges
+    Profil (historisches Bier oder live eingegebenes eigenes Profil)."""
+    data = get_dashboard_data()
+    recs = []
+    for phase in data.phases:
+        if phase not in group_shap:
+            continue
+        members = [f for f in data.mapping.get(phase, []) if f in feature_shap]
+        contribs = pd.Series({f: feature_shap[f] for f in members})
+        recs.append(recommend_for_phase(phase, group_shap[phase], contribs))
+    recs.sort(key=lambda r: abs(r["value"]), reverse=True)
+    return recs
+
+
+def methodology_payload() -> dict:
+    data = get_dashboard_data()
+    es = data.eval_summary
+    return {
+        "n_beers": es.get("n_beers", data.n_beers),
+        "n_features": es.get("n_features", data.feature_shap.shape[1]),
+        "test_r2_stored": es.get("test_r2_stored"),
+        "k_groups": es.get("k_groups", len(data.phases)),
+        "ari_slr_hsic": es.get("ari_slr_hsic"),
+        "faithfulness_group_player": es.get("faithfulness_group_player", {}),
+        "stability": es.get("stability", {}),
+    }
