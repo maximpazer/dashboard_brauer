@@ -29,7 +29,12 @@ def _write_all(batches: list[dict]) -> None:
         json.dump(batches, f, ensure_ascii=False, indent=2)
 
 
-def save_batch(inputs: dict[str, float], note: str = "", label: str | None = None) -> dict:
+def save_batch(
+    inputs: dict[str, float],
+    note: str = "",
+    label: str | None = None,
+    context: dict[str, float] | None = None,
+) -> dict:
     result = model_service.predict_and_explain(inputs)
     score_1_5, uncertainty_1_5 = total_to_scale_1_5(result["predicted_total"])
 
@@ -47,6 +52,8 @@ def save_batch(inputs: dict[str, float], note: str = "", label: str | None = Non
         "label": label or f"Hefeweizen #{len(batches) + 1}",
         "inputs": inputs,
         "note": note,
+        # Jury-Kategorien außerhalb des Modells (Sensorik-Kontext), optional.
+        "context": context or {},
         "predicted_total": result["predicted_total"],
         "score_1_5": score_1_5,
         "score_1_5_uncertainty": uncertainty_1_5,

@@ -67,10 +67,21 @@ class BatchRequest(BaseModel):
     inputs: dict[str, float] = Field(default_factory=dict)
     note: str = ""
     label: Optional[str] = None
+    # Jury-Kategorien außerhalb des Modells (Sensorik-Kontext), optional.
+    context: dict[str, float] = Field(default_factory=dict)
+
+
+class ChatTurn(BaseModel):
+    """Ein vorheriger Gesprächs-Turn für echte Mehrturn-Nachfragen."""
+
+    role: Literal["user", "assistant"]
+    content: str
 
 
 class ChatRequest(BaseModel):
     message: str
+    # Bisheriger Gesprächsverlauf (ohne System-Prompt) — ermöglicht Nachfragen.
+    history: list[ChatTurn] = Field(default_factory=list)
     # Kontext der aktuell betrachteten Ansicht (z.B. eingegebenes Profil oder
     # ausgewähltes historisches Bier) — wird dem LLM als Tool-Ersatz mitgegeben.
     beer_id: Optional[int] = None

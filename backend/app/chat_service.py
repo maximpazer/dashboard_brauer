@@ -43,7 +43,14 @@ Trenne dabei klar zwischen Hard-XAI (Modell) und Soft-SLR (mitzuprüfende Prozes
 auf den Methodik-Tab (ggf. get_methodology_summary aufrufen).
 6. Antworte knapp, konkret, auf Deutsch, in der Sprache eines Brauers (keine ML-Fachbegriffe \
 ohne Erklärung).
-7. Die Stichprobe ist klein (195 Biere) — sei vorsichtig mit Verallgemeinerungen."""
+7. Die Stichprobe ist klein (195 Biere) — sei vorsichtig mit Verallgemeinerungen.
+8. Formatiere in KOMPAKTEM Markdown: kurze **Fettungen** und Aufzählungen (-). KEINE großen \
+Überschriften (kein # oder ##); höchstens **fette Kurz-Labels**. Das Antwortfenster ist schmal.
+9. Wenn nach Handlungsempfehlungen / "was soll ich tun" gefragt wird: rufe get_action_levers auf und \
+erzeuge daraus eine PRIORISIERTE, brauer-handhabbare Liste (stärkster negativer Hebel zuerst). \
+Berücksichtige ausdrücklich den geäußerten Wunsch/Fokus des Brauers (z.B. "mehr Banane", "Hefe nicht \
+wechselbar") und passe die Reihenfolge/Auswahl daran an. Nenne je Punkt den konkreten Stellhebel aus \
+dem Tool — erfinde keine zusätzlichen Stellhebel."""
 
 
 def _build_tools_schema() -> list[dict]:
@@ -105,6 +112,20 @@ def _build_tools_schema() -> list[dict]:
                     },
                     "required": [],
                 },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_action_levers",
+                "description": (
+                    "Liefert die handfeste Stellhebel-Faktenbasis für die aktuelle Diagnose: "
+                    "die Brauprozess-Stufen, die die Bewertung am stärksten nach unten ziehen "
+                    "(nach Group-SHAP), je Stufe das konkrete Stellhebel-Inventar und die "
+                    "stärksten Feature-Treiber mit Brauer-Hinweisen. Nutze dies, um PRIORISIERTE, "
+                    "personalisierte Handlungsempfehlungen zu schreiben — ohne Stellhebel zu erfinden."
+                ),
+                "parameters": {"type": "object", "properties": {}, "required": []},
             },
         },
         {
@@ -203,6 +224,49 @@ def _build_tool_impls(req) -> dict:
             ),
         }
 
+    def get_action_levers() -> dict:
+        current = get_current_prediction()
+        if "group_shap" not in current or "feature_shap" not in current:
+            return current  # enthält die Fehlermeldung
+        group_shap = current["group_shap"]
+        feature_shap = current["feature_shap"]
+        mapping = data_service.get_dashboard_data().mapping
+
+        neg_phases = sorted(
+            [(p, v) for p, v in group_shap.items() if v < -0.05],
+            key=lambda kv: kv[1],
+        )
+        levers = []
+        for phase, value in neg_phases:
+            members = [f for f in mapping.get(phase, []) if f in feature_shap]
+            drivers = sorted(
+                [(f, feature_shap[f]) for f in members if feature_shap[f] < 0],
+                key=lambda kv: kv[1],
+            )[:3]
+            info = PHASE_INFO.get(phase, {})
+            levers.append(
+                {
+                    "phase": phase,
+                    "group_shap": round(float(value), 3),
+                    "lever_inventory": info.get("lever", ""),
+                    "summary": info.get("summary", ""),
+                    "negative_drivers": [
+                        {"feature": f, "shap": round(float(v), 3), "hint": FEATURE_HINTS.get(f, "")}
+                        for f, v in drivers
+                    ],
+                }
+            )
+        return {
+            "phases_dragging_down": levers,
+            "note": (
+                "Priorisiere die Phase mit dem stärksten negativen group_shap zuerst. "
+                "Stellhebel ausschliesslich aus 'lever_inventory' verwenden, nicht erfinden."
+                if levers
+                else "Keine Phase zieht klar nach unten — Prozess stabil halten und nur auf "
+                "die Wunschmerkmale des Brauers feinjustieren."
+            ),
+        }
+
     def get_feature_definition(feature: str) -> dict:
         if feature not in FEATURE_HINTS:
             return {"error": f"Unbekanntes Merkmal: {feature}", "verfuegbare_merkmale": list(FEATURE_HINTS.keys())}
@@ -232,6 +296,7 @@ def _build_tool_impls(req) -> dict:
         "get_current_prediction": get_current_prediction,
         "get_diagnosis_summary": get_diagnosis_summary,
         "get_feature_drivers": get_feature_drivers,
+        "get_action_levers": get_action_levers,
         "get_soft_slr_paths": get_soft_slr_paths,
         "get_feature_definition": get_feature_definition,
         "get_phase_info": get_phase_info,
@@ -249,8 +314,13 @@ async def _call_ollama(client: httpx.AsyncClient, messages: list[dict], tools: l
 async def answer(req) -> str:
     tools = _build_tools_schema()
     tool_impls = _build_tool_impls(req)
+    history = [
+        {"role": turn.role, "content": turn.content}
+        for turn in (getattr(req, "history", None) or [])
+    ]
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
+        *history,
         {"role": "user", "content": req.message},
     ]
 

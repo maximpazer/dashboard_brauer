@@ -117,6 +117,26 @@ def feature_ranges() -> dict[str, dict[str, float]]:
     return ranges
 
 
+@lru_cache(maxsize=1)
+def reference_shap_frame() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Feature-Werte (X) und die dazu passenden SHAP-Werte für alle Referenz-Biere.
+
+    SHAP wird hier mit demselben ``TreeExplainer`` wie bei der Live-Inferenz frisch
+    berechnet — dadurch ist die Zuordnung (Feature-Wert i <-> SHAP-Wert i) garantiert
+    konsistent, unabhängig von der Zeilenreihenfolge gespeicherter CSV-Artefakte.
+    Grundlage der Dependence-/Schwellenwert-Ansicht.
+    """
+    bundle = get_model_bundle()
+    frames = [
+        _read_parquet(config.MODEL_SNAPSHOT_DIR / f"{s}.parquet") for s in ("train", "val", "test")
+    ]
+    df = pd.concat(frames, ignore_index=True)
+    X = df[bundle.features].astype(float)
+    shap_values = bundle.explainer.shap_values(X)
+    shap_df = pd.DataFrame(shap_values, columns=bundle.features, index=X.index)
+    return X, shap_df
+
+
 def build_feature_row(profile: dict[str, float]) -> pd.DataFrame:
     """Baut eine 1-Zeilen-Eingabematrix aus einem (teilweise befüllten) Profil.
 

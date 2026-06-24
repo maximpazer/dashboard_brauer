@@ -179,6 +179,25 @@ export interface Batch {
   score_1_5: number;
   score_1_5_uncertainty: number;
   group_shap: Record<string, number>;
+  /** Jury-Kategorien außerhalb des Modells (Sensorik-Kontext). Optional/abwärtskompatibel. */
+  context?: Record<string, number>;
+}
+
+export interface DependencePoint {
+  x: number;
+  shap: number;
+}
+
+export interface FeatureDependence {
+  feature: string;
+  hint: string;
+  median: number;
+  min: number;
+  max: number;
+  points: DependencePoint[];
+  /** Feature-Wert, ab dem der SHAP-Effekt das Vorzeichen kippt (null = kein klarer Wechsel). */
+  threshold: number | null;
+  note: string;
 }
 
 export interface FaithfulnessGroupPlayer {
@@ -219,8 +238,14 @@ export interface MethodologyPayload {
   };
 }
 
+export interface ChatTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export interface ChatRequestBody {
   message: string;
+  history?: ChatTurn[];
   beer_id?: number | null;
   own_profile?: Record<string, number> | null;
   focus_phase?: string | null;

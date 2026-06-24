@@ -1,42 +1,55 @@
 "use client";
 
-import { ClipboardList, TrendingUp, BarChart3, ListChecks, History, type LucideIcon } from "lucide-react";
+import { ClipboardList, Stethoscope, Wrench, History, type LucideIcon } from "lucide-react";
 import clsx from "clsx";
 import { useBrewerState, type TabId } from "@/lib/brewer-state";
 
-const ITEMS: { id: TabId; label: string; icon: LucideIcon }[] = [
-  { id: "mein-bier", label: "Problem erfassen", icon: ClipboardList },
-  { id: "naechste-schritte", label: "Diagnose", icon: ListChecks },
-  { id: "prognose", label: "Prognose", icon: TrendingUp },
-  { id: "prozess-stufen", label: "Prozess-Stufen", icon: BarChart3 },
-  { id: "verlauf", label: "Verlauf", icon: History },
+const ITEMS: { id: TabId; label: string; sub: string; icon: LucideIcon }[] = [
+  { id: "mein-bier", label: "Mein Bier", sub: "Erfassen", icon: ClipboardList },
+  { id: "befund", label: "Befund", sub: "Wo stehe ich?", icon: Stethoscope },
+  { id: "was-tun", label: "Was tun?", sub: "Stellhebel", icon: Wrench },
+  { id: "verlauf", label: "Verlauf", sub: "Second Brain", icon: History },
 ];
 
 export function Sidebar() {
   const { activeTab, setActiveTab, result } = useBrewerState();
 
   return (
-    <nav className="flex flex-col space-y-2 rounded-xl bg-white p-4 shadow-sm">
-      {ITEMS.map((item) => {
+    <nav className="flex gap-2 overflow-x-auto rounded-xl border border-border bg-surface/80 p-2 shadow-sm">
+      {ITEMS.map((item, idx) => {
         const Icon = item.icon;
         const active = activeTab === item.id;
-        const disabled = item.id !== "mein-bier" && item.id !== "verlauf" && !result;
+        // Befund & Was-tun erst nach erster Diagnose.
+        const disabled = (item.id === "befund" || item.id === "was-tun") && !result;
         return (
           <button
             key={item.id}
             disabled={disabled}
             onClick={() => setActiveTab(item.id)}
             className={clsx(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors",
+              "flex min-w-[11.5rem] items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors sm:min-w-0 sm:flex-1",
               active
-                ? "border-l-4 border-amber-500 bg-amber-50 text-amber-800"
+                ? "bg-accent-soft text-accent-strong ring-1 ring-accent/30"
                 : disabled
-                  ? "cursor-not-allowed text-slate-300"
-                  : "text-slate-600 hover:bg-slate-50"
+                  ? "cursor-not-allowed text-ink-faint/60"
+                  : "text-ink-soft hover:bg-surface-muted"
             )}
-          >
-            <Icon className="h-4 w-4 shrink-0" />
-            {item.label}
+            >
+              <span
+                className={clsx(
+                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-xs font-bold",
+                  active ? "bg-accent text-white" : "bg-surface-muted text-ink-faint"
+                )}
+              >
+                {idx + 1}
+              </span>
+              <span className="min-w-0">
+              <span className="flex items-center gap-1.5 truncate text-sm font-semibold">
+                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {item.label}
+              </span>
+              <span className="hidden text-[11px] text-ink-faint sm:block">{item.sub}</span>
+            </span>
           </button>
         );
       })}

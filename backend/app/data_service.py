@@ -253,6 +253,73 @@ def recommendations_payload(group_shap: dict[str, float], feature_shap: dict[str
     return recs
 
 
+def _detect_threshold(xs: np.ndarray, ys: np.ndarray, feature: str) -> tuple[float | None, str]:
+    """Sucht den Feature-Wert, ab dem der SHAP-Einfluss das Vorzeichen kippt.
+
+    Bildet quantilbasierte Bins, mittelt SHAP je Bin (glättet Tree-Rauschen) und
+    interpoliert die Nullstelle des ersten Vorzeichenwechsels. Liefert ``None``,
+    wenn kein klarer Kipp-Punkt existiert (durchgehend gleiches Vorzeichen)."""
+    order = np.argsort(xs)
+    xs, ys = xs[order], ys[order]
+    if len(xs) < 12 or len(np.unique(xs)) < 5:
+        return None, "Zu wenige unterschiedliche Werte für eine belastbare Schwelle."
+
+    edges = np.unique(np.quantile(xs, np.linspace(0, 1, 11)))
+    bin_x, bin_y = [], []
+    for i in range(len(edges) - 1):
+        lo, hi = edges[i], edges[i + 1]
+        mask = (xs >= lo) & (xs <= hi) if i == len(edges) - 2 else (xs >= lo) & (xs < hi)
+        if mask.any():
+            bin_x.append(float(xs[mask].mean()))
+            bin_y.append(float(ys[mask].mean()))
+    bx, by = np.array(bin_x), np.array(bin_y)
+
+    for i in range(len(by) - 1):
+        a, b = by[i], by[i + 1]
+        if a < 0 < b or b < 0 < a:
+            t = a / (a - b)
+            x0 = float(bx[i] + t * (bx[i + 1] - bx[i]))
+            if a < b:
+                note = (
+                    f"Ab {feature} ≈ {x0:.2f} kippt der Effekt von negativ zu positiv: "
+                    f"darunter zieht es den Score, darüber hebt es ihn."
+                )
+            else:
+                note = (
+                    f"Ab {feature} ≈ {x0:.2f} kippt der Effekt von positiv zu negativ: "
+                    f"darunter hebt es den Score, darüber zieht es ihn."
+                )
+            return x0, note
+
+    trend = "hebt" if by.mean() > 0 else "senkt"
+    return None, f"Kein klarer Kipp-Punkt — höhere {feature}-Werte {trend} den Score tendenziell durchgehend."
+
+
+def feature_dependence_payload(feature: str) -> dict:
+    """Dependence-Daten für ein Merkmal: (Feature-Wert, SHAP) über alle Referenz-Biere
+    plus erkannter Schwellenwert. Zeigt nicht-lineare Effekte und Cluster/Sprünge."""
+    bundle = model_service.get_model_bundle()
+    if feature not in bundle.features:
+        raise KeyError(feature)
+
+    X, shap_df = model_service.reference_shap_frame()
+    xs = X[feature].to_numpy(dtype=float)
+    ys = shap_df[feature].to_numpy(dtype=float)
+    threshold, note = _detect_threshold(xs, ys, feature)
+    ranges = model_service.feature_ranges()[feature]
+
+    return {
+        "feature": feature,
+        "hint": feature_hint(feature),
+        "median": ranges["median"],
+        "min": ranges["min"],
+        "max": ranges["max"],
+        "points": [{"x": float(x), "shap": float(y)} for x, y in zip(xs, ys)],
+        "threshold": threshold,
+        "note": note,
+    }
+
+
 def methodology_payload() -> dict:
     data = get_dashboard_data()
     es = data.eval_summary

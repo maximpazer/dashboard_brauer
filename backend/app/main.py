@@ -19,7 +19,7 @@ app = FastAPI(title="Brauer-Dashboard API", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -40,6 +40,14 @@ def features() -> list[dict]:
         {"name": f, "hint": feature_hint(f), "phase": phase_by_feature.get(f), **ranges[f]}
         for f in bundle.features
     ]
+
+
+@app.get("/api/features/{feature:path}/dependence")
+def feature_dependence(feature: str) -> dict:
+    try:
+        return data_service.feature_dependence_payload(feature)
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unbekanntes Merkmal: {feature}")
 
 
 @app.get("/api/groups/summary")
@@ -91,7 +99,7 @@ def diagnose(req: DiagnoseRequest) -> dict:
 
 @app.post("/api/batches")
 def create_batch(req: BatchRequest) -> dict:
-    return batch_service.save_batch(req.inputs, req.note, req.label)
+    return batch_service.save_batch(req.inputs, req.note, req.label, req.context)
 
 
 @app.get("/api/batches")

@@ -2,25 +2,21 @@
 
 import { Sidebar } from "@/components/Sidebar";
 import { useBrewerState } from "@/lib/brewer-state";
-import { MeinBierTab } from "@/components/tabs/MeinBierTab";
-import { PrognoseTab } from "@/components/tabs/PrognoseTab";
-import { ProzessStufenTab } from "@/components/tabs/ProzessStufenTab";
-import { NaechsteSchritteTab } from "@/components/tabs/NaechsteSchritteTab";
+import { ErfassenTab } from "@/components/tabs/ErfassenTab";
+import { BefundTab } from "@/components/tabs/BefundTab";
+import { WasTunTab } from "@/components/tabs/WasTunTab";
 import { VerlaufTab } from "@/components/tabs/VerlaufTab";
 
 export default function WizardPage() {
   const { activeTab } = useBrewerState();
 
   return (
-    <div className="flex flex-col gap-8 md:flex-row">
-      <aside className="md:w-56">
-        <Sidebar />
-      </aside>
-      <div key={activeTab} className="flex-1 animate-in fade-in duration-300">
-        {activeTab === "mein-bier" && <MeinBierTab />}
-        {activeTab === "prognose" && <PrognoseTab />}
-        {activeTab === "prozess-stufen" && <ProzessStufenTab />}
-        {activeTab === "naechste-schritte" && <NaechsteSchritteTab />}
+    <div className="space-y-6">
+      <Sidebar />
+      <div key={activeTab} className="min-w-0 animate-in fade-in duration-300">
+        {activeTab === "mein-bier" && <ErfassenTab />}
+        {activeTab === "befund" && <BefundTab />}
+        {activeTab === "was-tun" && <WasTunTab />}
         {activeTab === "verlauf" && <VerlaufTab />}
       </div>
     </div>

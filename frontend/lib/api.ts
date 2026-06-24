@@ -5,6 +5,7 @@ import type {
   DiagnoseRequestBody,
   DiagnosisOptions,
   Feature,
+  FeatureDependence,
   GroupsSummary,
   MethodologyPayload,
   PredictResult,
@@ -30,6 +31,8 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
 
 export const api = {
   features: () => getJson<Feature[]>("/api/features"),
+  featureDependence: (feature: string) =>
+    getJson<FeatureDependence>(`/api/features/${encodeURIComponent(feature)}/dependence`),
   groupsSummary: () => getJson<GroupsSummary>("/api/groups/summary"),
   predict: (features: Record<string, number>) =>
     postJson<PredictResult>("/api/predict", { features }),
@@ -37,8 +40,12 @@ export const api = {
   diagnose: (body: DiagnoseRequestBody) => postJson<PredictResult>("/api/diagnose", body),
   methodology: () => getJson<MethodologyPayload>("/api/methodology"),
   chat: (body: ChatRequestBody) => postJson<ChatResponseBody>("/api/chat", body),
-  saveBatch: (inputs: Record<string, number>, note: string, label?: string) =>
-    postJson<Batch>("/api/batches", { inputs, note, label }),
+  saveBatch: (
+    inputs: Record<string, number>,
+    note: string,
+    label?: string,
+    context?: Record<string, number>
+  ) => postJson<Batch>("/api/batches", { inputs, note, label, context }),
   batchesList: () => getJson<Batch[]>("/api/batches"),
   batchDetail: (id: string) => getJson<Batch>(`/api/batches/${id}`),
 };

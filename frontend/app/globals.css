@@ -1,36 +1,58 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+  Design-System "Brauhaus Dark"
+  Dunkle Malz-/Kessel-Basis, Kupfer/Orange als Akzent, reduzierte Kontraste.
+  Tokens werden als Tailwind-Utilities ausgespielt: bg-surface, text-ink,
+  border-border, bg-accent, text-positive, bg-negative-soft, ...
+*/
+@theme {
+  --color-canvas: #0b0907; /* Seiten-Hintergrund */
+  --color-surface: #15110d; /* Karten */
+  --color-surface-muted: #211913; /* eingelassene Flächen */
+  --color-border: #34281d;
+  --color-border-strong: #57412c;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-ink: #fff7ed; /* Überschriften */
+  --color-ink-soft: #d8c7b4; /* Fließtext */
+  --color-ink-faint: #8f7c68; /* Hinweise / Achsen */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-accent: #f97316; /* Kupfer/Orange — Score, aktiver Tab, Primär-Button */
+  --color-accent-strong: #fb923c;
+  --color-accent-soft: #2b170c;
+
+  --color-positive: #84cc16; /* treibt Score hoch */
+  --color-positive-soft: #172412;
+  --color-negative: #fb7185; /* zieht Score runter */
+  --color-negative-soft: #2a1117;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background:
+    radial-gradient(circle at top left, rgba(249, 115, 22, 0.12), transparent 34rem),
+    radial-gradient(circle at bottom right, rgba(180, 83, 9, 0.08), transparent 30rem),
+    var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: rgba(249, 115, 22, 0.35);
+  color: var(--color-ink);
 }
 
 @keyframes fade-in {
   from {
     opacity: 0;
+    transform: translateY(2px);
   }
   to {
     opacity: 1;
+    transform: translateY(0);
   }
 }
 
