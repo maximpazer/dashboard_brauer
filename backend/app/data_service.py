@@ -215,6 +215,29 @@ def benchmark_quartiles_1_5() -> dict:
     }
 
 
+def enrich_prediction(result: dict) -> dict:
+    """Reichert das rohe ``model_service.predict_and_explain()``-Ergebnis um
+    Group-SHAP, Empfehlungen, Benchmark-Perzentil und die 1-5-Skala an — von
+    ``/api/predict`` und den Chat-Tools gemeinsam genutzt (ein Berechnungsweg)."""
+    dashboard = get_dashboard_data()
+    phases, mapping = dashboard.phases, dashboard.mapping
+    group_shap = {
+        phase: sum(result["feature_shap"].get(f, 0.0) for f in mapping.get(phase, []))
+        for phase in phases
+    }
+    result["group_shap"] = group_shap
+    result["recommendations"] = recommendations_payload(group_shap, result["feature_shap"])
+
+    benchmark = benchmark_percentile_payload(result["predicted_total"])
+    result["benchmark_percentile"] = benchmark["percentile"]
+
+    score_1_5, uncertainty_1_5 = total_to_scale_1_5(result["predicted_total"])
+    result["score_1_5"] = score_1_5
+    result["score_1_5_uncertainty"] = uncertainty_1_5
+    result["benchmark_quartiles_1_5"] = benchmark_quartiles_1_5()
+    return result
+
+
 def recommendations_payload(group_shap: dict[str, float], feature_shap: dict[str, float]) -> list[dict]:
     """Templatierte Handlungsempfehlungen je Brauprozess-Stufe für ein beliebiges
     Profil (historisches Bier oder live eingegebenes eigenes Profil)."""
@@ -241,4 +264,16 @@ def methodology_payload() -> dict:
         "ari_slr_hsic": es.get("ari_slr_hsic"),
         "faithfulness_group_player": es.get("faithfulness_group_player", {}),
         "stability": es.get("stability", {}),
+        "soft_assignment": {
+            "enabled": True,
+            "source": "SLR-Detailmatrizen",
+            "role": (
+                "Diagnostische Wissensschicht fuer Mehrfachzuordnungen; "
+                "kein Ersatz fuer additive Hard Group-SHAP-Werte."
+            ),
+        },
+        "llm": {
+            "model": config.OLLAMA_MODEL,
+            "role": "Dialogschicht mit Ollama Tool Calling, nicht das Prognosemodell.",
+        },
     }

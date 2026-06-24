@@ -33,7 +33,7 @@ export function BrewerProvider({ children }: { children: ReactNode }) {
     setActiveTab("mein-bier");
   }
 
-  const chatLabel = result ? "Mein aktueller Sud" : "Allgemeine Übersicht";
+  const chatLabel = result ? "Aktuelle Diagnose" : "Allgemeine Übersicht";
 
   return (
     <BrewerContext.Provider

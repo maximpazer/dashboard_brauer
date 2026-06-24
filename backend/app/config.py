@@ -12,10 +12,12 @@ from pathlib import Path
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 # backend -> dashboard_brauer -> code -> Final_Model
 BASE_DIR = BACKEND_DIR.parent.parent.parent
+PROJECT_DIR = BASE_DIR.parent
 
 RESULTS_DIR = BASE_DIR / "results"
 SHAP_DIR = RESULTS_DIR / "shap"
 EVAL_DIR = RESULTS_DIR / "evaluation"
+SLR_MATRICES_DIR = PROJECT_DIR / "MAX" / "literatur" / "SLR" / "matrices"
 
 DATA_DIR = BACKEND_DIR / "app" / "data"
 BATCHES_FILE = DATA_DIR / "batches.json"
@@ -37,4 +39,7 @@ PROCESS_ORDER = [
 ]
 
 OLLAMA_HOST = "http://localhost:11434"
-OLLAMA_MODEL = "deepseek-r1:14b"
+# qwen3:30b-a3b: native Tool-Calling-Unterstützung (Capabilities laut
+# `GET /api/tags`: ["completion", "tools", "thinking"]), MoE (~3B aktive
+# Parameter/Token) -> deutlich schneller als ein dichtes Modell gleicher Größe.
+OLLAMA_MODEL = "qwen3:30b-a3b"

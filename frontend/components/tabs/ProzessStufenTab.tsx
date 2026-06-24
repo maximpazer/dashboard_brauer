@@ -18,7 +18,7 @@ export function ProzessStufenTab() {
   }, []);
 
   if (!result) {
-    return <p className="text-slate-500">Bitte zuerst auf "Mein Bier" ein Profil eingeben und berechnen.</p>;
+    return <p className="text-slate-500">Bitte zuerst unter Problem erfassen ein Profil eingeben und berechnen.</p>;
   }
   if (error) return <p className="text-red-700">⚠ {error}</p>;
   if (!summary) return <p className="text-slate-500">Lade…</p>;
@@ -28,7 +28,7 @@ export function ProzessStufenTab() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Prozess-Stufen</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Welche Brauprozess-Stufe treibt die Bewertung deines Sudes — und in welche Richtung?
+          Harte Group-SHAP-Sicht: welche disjunkte Brauprozess-Stufe treibt die Modellbewertung und in welche Richtung?
         </p>
       </div>
 
@@ -65,9 +65,9 @@ export function ProzessStufenTab() {
       </div>
 
       <p className="text-xs text-slate-500">
-        SLR-Domänengruppen (aggregierte Shapley-Werte) ·{" "}
+        Hard Assignment für additive XAI: jedes Feature zählt genau zu einer Stufe. Soft-SLR-Pfade stehen in der Diagnose. ·{" "}
         <Link href="/methodik" className="text-amber-700 hover:underline">
-          Methodik-Details (HSIC) ansehen
+          Methodik-Details ansehen
         </Link>
       </p>
     </div>

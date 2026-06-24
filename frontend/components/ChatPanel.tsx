@@ -21,7 +21,7 @@ export function ChatPanel() {
   ]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const { inputs, chatLabel } = useBrewerState();
+  const { inputs, result, chatLabel } = useBrewerState();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,6 +38,17 @@ export function ChatPanel() {
       const res = await api.chat({
         message,
         own_profile: Object.keys(inputs).length > 0 ? inputs : null,
+        diagnosis_context: result
+          ? {
+              problem: result.problem,
+              primary_diagnosis: result.primary_diagnosis,
+              feature_drivers: result.feature_drivers,
+              soft_slr_paths: result.soft_slr_paths,
+              touched_features: result.touched_features,
+              defaulted_feature_count: result.defaulted_features?.length,
+              methodology_note: result.methodology_note,
+            }
+          : null,
       });
       setMessages((m) => [...m, { role: "assistant", content: res.reply }]);
     } catch (e) {

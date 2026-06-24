@@ -54,6 +54,119 @@ export interface PredictResult {
   score_1_5: number;
   score_1_5_uncertainty: number;
   benchmark_quartiles_1_5: BenchmarkQuartiles1_5;
+  features?: Record<string, number>;
+  explicit_features?: Record<string, number>;
+  touched_features?: Record<string, TouchedFeature>;
+  defaulted_features?: string[];
+  problem?: ProblemKey;
+  process_note?: string;
+  feature_drivers?: FeatureDriver[];
+  soft_slr_paths?: SoftSlrPath[];
+  primary_diagnosis?: PrimaryDiagnosis;
+  methodology_note?: string;
+}
+
+export type ProblemKey =
+  | "body_low"
+  | "creaminess_low"
+  | "acid_high"
+  | "fruit_mismatch"
+  | "spice_mismatch"
+  | "malt_low"
+  | "oxidized"
+  | "dms"
+  | "diacetyl"
+  | "yeasty"
+  | "score_only";
+
+export interface ProblemOption {
+  key: ProblemKey;
+  label: string;
+  focus: string[];
+}
+
+export interface InputAxis {
+  key: string;
+  label: string;
+  description?: string;
+  features: string[];
+}
+
+export interface DiagnosisOptions {
+  problems: ProblemOption[];
+  rating_axes: InputAxis[];
+  defect_axes: InputAxis[];
+  model_note: string;
+}
+
+export interface GuidedRatings {
+  body?: number | null;
+  creaminess?: number | null;
+  acid?: number | null;
+  fruit?: number | null;
+  spice?: number | null;
+  malt_sweet?: number | null;
+}
+
+export interface DefectRatings {
+  oxidation?: number | null;
+  dms?: number | null;
+  diacetyl?: number | null;
+  yeasty?: number | null;
+  metallic?: number | null;
+  lightstruck?: number | null;
+}
+
+export interface KnownParams {
+  stammwuerze?: number | null;
+  alkoholgehalt?: number | null;
+}
+
+export interface DiagnoseRequestBody {
+  problem: ProblemKey;
+  ratings: GuidedRatings;
+  defects: DefectRatings;
+  known_params: KnownParams;
+  process_note: string;
+  expert_features?: Record<string, number>;
+}
+
+export interface TouchedFeature {
+  source: "rating" | "defect" | "known_param" | "problem_default";
+  axis: string;
+  input_value: number;
+}
+
+export interface FeatureDriver {
+  feature: string;
+  value: number;
+  direction: "positiv" | "negativ" | "neutral";
+  touched_by_brewer?: boolean;
+  hint: string;
+}
+
+export interface SoftMembership {
+  phase: string;
+  weight: number;
+  evidence_count: number;
+  is_hard_phase: boolean;
+  summary: string;
+}
+
+export interface SoftSlrPath {
+  feature: string;
+  hard_phase: string | null;
+  hint: string;
+  memberships: SoftMembership[];
+  explanation: string;
+  top_soft_phases: string[];
+}
+
+export interface PrimaryDiagnosis {
+  phase: string | null;
+  headline: string;
+  detail: string;
+  next_questions: string[];
 }
 
 export interface Batch {
@@ -95,6 +208,15 @@ export interface MethodologyPayload {
     hsic_ari_vs_ref_mean: number;
     slr_ari: number;
   };
+  soft_assignment?: {
+    enabled: boolean;
+    source: string;
+    role: string;
+  };
+  llm?: {
+    model: string;
+    role: string;
+  };
 }
 
 export interface ChatRequestBody {
@@ -102,6 +224,7 @@ export interface ChatRequestBody {
   beer_id?: number | null;
   own_profile?: Record<string, number> | null;
   focus_phase?: string | null;
+  diagnosis_context?: Record<string, unknown> | null;
 }
 
 export interface ChatResponseBody {

@@ -37,9 +37,12 @@ Health-Check: `GET http://localhost:8000/api/health`
 | `GET /api/beers` | Liste der 195 historischen Biere |
 | `GET /api/beers/{id}` | Detail eines historischen Bieres (SHAP, Perzentile, Empfehlungen) |
 | `POST /api/predict` | Live-Vorhersage + SHAP + Empfehlungen + 1-5-Score für ein eingegebenes Profil |
+| `GET /api/diagnosis/options` | Geführte Brauer-Problemoptionen, Kernachsen und Fehlaroma-Achsen |
+| `GET /api/diagnosis/soft-memberships` | SLR-basierte Soft-Zuordnung je Feature als Diagnose-Kontext |
+| `POST /api/diagnose` | Geführter Brauer-Input → vollständiges Modellprofil, Prognose, Hard-SHAP, Soft-SLR-Pfade |
 | `GET /api/benchmark?total=X` | Perzentil einer Bewertung in der historischen Verteilung |
 | `GET /api/methodology` | SLR-vs-HSIC-Faithfulness/Stabilität (für den Methodik-Tab) |
-| `POST /api/chat` | Chatbot (Context-Injection, lokales Ollama-Modell) |
+| `POST /api/chat` | Chatbot mit Qwen3:30B-A3B und Ollama Tool Calling |
 | `POST /api/batches` | Sud speichern (Verlauf-Tab) — JSON-Datei-Persistenz |
 | `GET /api/batches` | Gespeicherte Sude, neueste zuerst |
 | `GET /api/batches/{id}` | Ein gespeicherter Sud im Detail |
@@ -72,7 +75,14 @@ ursprüngliche Diagnose.
 ## Ollama / Chat
 
 `chat_service.py` ruft ein lokal gehostetes Ollama-Modell unter
-`http://localhost:11434` auf (Standard-Modellname `deepseek-r1:14b`, siehe
-`config.py`). Das aktuell verfügbare Modell unterstützt **kein** natives
-Tool-Calling (`/api/tags`-Capabilities: `["completion", "thinking"]`) — der
-Chat nutzt deshalb Context-Injection statt Function-Calling.
+`http://localhost:11434` auf (Standard-Modellname `qwen3:30b-a3b`, siehe
+`config.py`). Qwen wird als Dialogschicht genutzt, nicht als Prognosemodell.
+Das Modell soll per Tool Calling definierte Backend-Tools abrufen:
+
+- aktuelle XGBoost-Prognose und Hard Group-SHAP
+- geführte Diagnose und Feature-Treiber
+- SLR-basierte Soft-Prozesspfade
+- Feature-/Phasen-Definitionen und Methodikhinweise
+
+Die Antwort trennt Modellbefund, Hard-XAI, Soft-SLR-Kontext und praktische
+Rückfragen an den Brauer.

@@ -104,6 +104,34 @@ export default function MethodikPage() {
         zwischen ML-Erklärung und Braupraxis (Kim & Park 2026, GS-SHAP, §6).
       </div>
 
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+          <h3 className="mb-2 text-sm font-semibold text-amber-900">Soft-SLR im Dashboard</h3>
+          <p className="text-sm text-amber-950">
+            Das Modell bleibt hart gruppiert, weil additive Group-SHAP disjunkte Gruppen braucht.
+            Für die Brauer-Diagnose werden zusätzlich SLR-Mehrfachbezüge angezeigt: welche Phasen bei
+            einem sensorischen Problem mitzuprüfen sind. Diese Soft-Pfade sind keine neue SHAP-Summe.
+          </p>
+          {data.soft_assignment && (
+            <p className="mt-2 text-xs text-amber-800">
+              Quelle: {data.soft_assignment.source} · Rolle: {data.soft_assignment.role}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-white p-4">
+          <h3 className="mb-2 text-sm font-semibold text-slate-800">Qwen Tool Calling</h3>
+          <p className="text-sm text-slate-700">
+            Der Brau-Assistent nutzt {data.llm?.model ?? "qwen3:30b-a3b"} als Dialogschicht mit
+            Tool Calling. Qwen erzeugt nicht die Prognose, sondern ruft definierte Backend-Tools für
+            XGBoost-Prognose, Hard-SHAP, Feature-Treiber, Soft-SLR-Pfade und Methodikhinweise ab.
+          </p>
+          <p className="mt-2 text-xs text-slate-500">
+            Dadurch bleiben Zahlen und methodische Aussagen an die vorhandenen Artefakte gebunden.
+          </p>
+        </div>
+      </div>
+
       <Disclaimer>
         Die Stufen-Zuordnung ist ein interpretativer Proxy, keine kausale Aussage: sensorische
         Merkmale sind dem Prozess nachgelagert, die Zuordnung Merkmal → Brauprozess-Stufe ist

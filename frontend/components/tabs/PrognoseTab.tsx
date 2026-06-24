@@ -7,7 +7,7 @@ export function PrognoseTab() {
   const { result } = useBrewerState();
 
   if (!result) {
-    return <p className="text-slate-500">Bitte zuerst auf "Mein Bier" ein Profil eingeben und berechnen.</p>;
+    return <p className="text-slate-500">Bitte zuerst unter Problem erfassen ein Profil eingeben und berechnen.</p>;
   }
 
   const fillPct = ((result.score_1_5 - 1) / 4) * 100;
@@ -22,7 +22,7 @@ export function PrognoseTab() {
       <div>
         <h1 className="text-2xl font-bold text-slate-900">Prognose</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Vorhergesagte Jury-Bewertung für dein aktuelles Sensorikprofil.
+          Sekundäre Einordnung der Diagnose: vorhergesagte Jury-Bewertung für das approximierte Sensorikprofil.
         </p>
       </div>
 
@@ -64,7 +64,8 @@ export function PrognoseTab() {
         Echte Modell-Vorhersage: {result.predicted_total.toFixed(1)} Punkte (Jury-Skala) · Modell
         erklärt ca. {(result.r2 * 100).toFixed(0)} % der Varianz (R²={result.r2.toFixed(2)}, n=
         {result.n_beers} Biere), RMSE ≈ ±{result.rmse.toFixed(1)} Punkte. Als Orientierung lesen,
-        nicht als exakte Wettbewerbs-Vorhersage.
+        nicht als exakte Wettbewerbs-Vorhersage. Bei geführter Eingabe wurden nicht bewertete Merkmale
+        mit Trainingsmedianen ersetzt.
       </Disclaimer>
     </div>
   );

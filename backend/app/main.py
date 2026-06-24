@@ -10,10 +10,10 @@ from __future__ import annotations
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import batch_service, data_service, model_service
+from . import batch_service, data_service, diagnosis_service, model_service
 from .brewing_knowledge import feature_hint
 from .chat_service import answer as chat_answer
-from .schemas import BatchRequest, ChatRequest, ChatResponse, PredictRequest
+from .schemas import BatchRequest, ChatRequest, ChatResponse, DiagnoseRequest, PredictRequest
 
 app = FastAPI(title="Brauer-Dashboard API", version="0.1.0")
 
@@ -71,23 +71,22 @@ def beer_detail(beer_id: int) -> dict:
 @app.post("/api/predict")
 def predict(req: PredictRequest) -> dict:
     result = model_service.predict_and_explain(req.features)
-    benchmark = data_service.benchmark_percentile_payload(result["predicted_total"])
-    result["benchmark_percentile"] = benchmark["percentile"]
+    return data_service.enrich_prediction(result)
 
-    dashboard = data_service.get_dashboard_data()
-    phases, mapping = dashboard.phases, dashboard.mapping
-    group_shap = {
-        phase: sum(result["feature_shap"].get(f, 0.0) for f in mapping.get(phase, []))
-        for phase in phases
-    }
-    result["group_shap"] = group_shap
-    result["recommendations"] = data_service.recommendations_payload(group_shap, result["feature_shap"])
 
-    score_1_5, uncertainty_1_5 = data_service.total_to_scale_1_5(result["predicted_total"])
-    result["score_1_5"] = score_1_5
-    result["score_1_5_uncertainty"] = uncertainty_1_5
-    result["benchmark_quartiles_1_5"] = data_service.benchmark_quartiles_1_5()
-    return result
+@app.get("/api/diagnosis/options")
+def diagnosis_options() -> dict:
+    return diagnosis_service.diagnosis_options_payload()
+
+
+@app.get("/api/diagnosis/soft-memberships")
+def diagnosis_soft_memberships() -> dict:
+    return diagnosis_service.soft_memberships_payload()
+
+
+@app.post("/api/diagnose")
+def diagnose(req: DiagnoseRequest) -> dict:
+    return diagnosis_service.diagnose(req)
 
 
 @app.post("/api/batches")

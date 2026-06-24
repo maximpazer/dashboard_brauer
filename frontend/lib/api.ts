@@ -2,6 +2,8 @@ import type {
   Batch,
   ChatRequestBody,
   ChatResponseBody,
+  DiagnoseRequestBody,
+  DiagnosisOptions,
   Feature,
   GroupsSummary,
   MethodologyPayload,
@@ -31,6 +33,8 @@ export const api = {
   groupsSummary: () => getJson<GroupsSummary>("/api/groups/summary"),
   predict: (features: Record<string, number>) =>
     postJson<PredictResult>("/api/predict", { features }),
+  diagnosisOptions: () => getJson<DiagnosisOptions>("/api/diagnosis/options"),
+  diagnose: (body: DiagnoseRequestBody) => postJson<PredictResult>("/api/diagnose", body),
   methodology: () => getJson<MethodologyPayload>("/api/methodology"),
   chat: (body: ChatRequestBody) => postJson<ChatResponseBody>("/api/chat", body),
   saveBatch: (inputs: Record<string, number>, note: string, label?: string) =>

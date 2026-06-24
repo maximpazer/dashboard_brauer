@@ -5,10 +5,10 @@ import clsx from "clsx";
 import { useBrewerState, type TabId } from "@/lib/brewer-state";
 
 const ITEMS: { id: TabId; label: string; icon: LucideIcon }[] = [
-  { id: "mein-bier", label: "Mein Bier", icon: ClipboardList },
+  { id: "mein-bier", label: "Problem erfassen", icon: ClipboardList },
+  { id: "naechste-schritte", label: "Diagnose", icon: ListChecks },
   { id: "prognose", label: "Prognose", icon: TrendingUp },
   { id: "prozess-stufen", label: "Prozess-Stufen", icon: BarChart3 },
-  { id: "naechste-schritte", label: "Nächste Schritte", icon: ListChecks },
   { id: "verlauf", label: "Verlauf", icon: History },
 ];
 
